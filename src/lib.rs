@@ -95,9 +95,9 @@ mod tests {
             let ans = eval(ops);
             match (expected, ans) {
                 (Ok(expected), Ok(ans)) => assert_eq!(expected, ans),
-                (Ok(_), Err(_)) => assert!(false),
-                (Err(_), Ok(_)) => assert!(false),
-                (Err(_), Err(_)) => assert!(true),
+                (Ok(_), Err(_)) => unreachable!(),
+                (Err(_), Ok(_)) => unreachable!(),
+                (Err(_), Err(_)) => continue,
             }
         }
     }
