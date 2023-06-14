@@ -137,6 +137,18 @@ pub fn organize_ops(ops: Vec<Ops>) -> Result<Vec<Ops>, Error> {
     return Ok(ans);
 }
 
+fn get_number(data: &[u8]) -> Vec<char> {
+    data.iter()
+        .take_while(|b| **b > 48 && **b <= 57)
+        .map(|b| std::char::from_u32(*b as u32).unwrap())
+        .collect()
+}
+
+fn bytes_to_number(data: &[char]) -> i64 {
+    let string_number = data.into_iter().collect::<String>();
+    string_number.parse::<i64>().unwrap()
+}
+
 pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
     let mut format_bytes = Vec::new();
 
@@ -164,20 +176,9 @@ pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
                 }
                 match next.unwrap() {
                     &(48..=57) => {
-                        let mut number_array = vec![];
-                        for tc in b[idx + 1..length].iter() {
-                            match tc {
-                                &(48..=57) => {
-                                    number_array.push(std::char::from_u32(*tc as u32).unwrap())
-                                }
-                                _ => break,
-                            }
-                        }
-
-                        let len = number_array.len();
-                        idx += len;
-                        let string_number = number_array.into_iter().collect::<String>();
-                        let number = string_number.parse::<i64>().unwrap();
+                        let number_array = get_number(&b[idx + 1..length]);
+                        idx += number_array.len();
+                        let number = bytes_to_number(&number_array);
                         format_bytes.push(Ops::Number(number));
                     }
                     b' ' => format_bytes.push(Ops::Operator(Operator::Add)),
@@ -191,20 +192,9 @@ pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
                 }
                 match next.unwrap() {
                     &(48..=57) => {
-                        let mut number_array = vec![];
-                        for tc in b[idx + 1..length].iter() {
-                            match tc {
-                                &(48..=57) => {
-                                    number_array.push(std::char::from_u32(*tc as u32).unwrap())
-                                }
-                                _ => break,
-                            }
-                        }
-
-                        let len = number_array.len();
-                        idx += len;
-                        let string_number = number_array.into_iter().collect::<String>();
-                        let number = string_number.parse::<i64>().unwrap();
+                        let number_array = get_number(&b[idx + 1..length]);
+                        idx += number_array.len();
+                        let number = bytes_to_number(&number_array);
                         format_bytes.push(Ops::Number(0 - number));
                     }
                     b' ' => format_bytes.push(Ops::Operator(Operator::Sub)),
@@ -212,37 +202,10 @@ pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
                 }
             }
             c if c > &48 && c <= &57 => {
-                let next = b.get(idx + 1);
-                if next.is_none() {
-                    let s = format!("{}", *c - 48);
-                    let number = s.parse::<i64>().unwrap();
-                    format_bytes.push(Ops::Number(number));
-                } else {
-                    match next.unwrap() {
-                        &(48..=57) => {
-                            let mut number_array = vec![];
-                            for tc in b[idx..length].iter() {
-                                match tc {
-                                    &(48..=57) => {
-                                        number_array.push(std::char::from_u32(*tc as u32).unwrap())
-                                    }
-                                    _ => break,
-                                }
-                            }
-                            let len = number_array.len();
-                            idx += len - 1;
-                            let string_number = number_array.into_iter().collect::<String>();
-                            let number = string_number.parse::<i64>().unwrap();
-                            format_bytes.push(Ops::Number(number));
-                        }
-                        b' ' | b')' => {
-                            let s = format!("{}", *c - 48);
-                            let number = s.parse::<i64>().unwrap();
-                            format_bytes.push(Ops::Number(number));
-                        }
-                        _ => unreachable!(),
-                    }
-                }
+                let number_array = get_number(&b[idx..length]);
+                idx += number_array.len() - 1;
+                let number = bytes_to_number(&number_array);
+                format_bytes.push(Ops::Number(number));
             }
             _ => {
                 return Err(Error::InvalidExpression);
