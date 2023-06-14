@@ -271,6 +271,18 @@ mod tests {
                 ],
                 Ok::<_, Error>(5),
             ),
+            (
+                vec![
+                    Ops::Number(3),
+                    Ops::Number(2),
+                    Ops::Number(4),
+                    Ops::Operator(Operator::Mul),
+                    Ops::Operator(Operator::Add),
+                    Ops::Number(1),
+                    Ops::Operator(Operator::Mul),
+                ],
+                Ok::<_, Error>(11),
+            ),
         ];
 
         for (ops, expected) in testcases {
