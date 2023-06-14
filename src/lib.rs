@@ -36,6 +36,9 @@ pub enum Error {
     InvalidExpression,
 }
 
+// eval the operators list to calculate the result
+// by using stack calculation.
+// 2 3 + 1 * -> 5 1 * -> 5
 pub fn eval(ops: Vec<Ops>) -> Result<i64, Error> {
     let mut stack = VecDeque::new();
 
@@ -85,6 +88,8 @@ pub fn eval(ops: Vec<Ops>) -> Result<i64, Error> {
     Ok(ans.unwrap())
 }
 
+// organize the operators to postfix expression
+// 2 + 3 * 2 -> 2 3 2 * +
 pub fn organize_ops(ops: Vec<Ops>) -> Result<Vec<Ops>, Error> {
     let mut stack = Vec::new();
     let mut ans = Vec::new();
@@ -130,13 +135,14 @@ pub fn organize_ops(ops: Vec<Ops>) -> Result<Vec<Ops>, Error> {
         }
     }
 
-    while let Some(op) = stack.pop() {
-        ans.push(Ops::Operator(op));
-    }
-
-    return Ok(ans);
+    Ok(ans
+        .into_iter()
+        .chain(stack.into_iter().rev().map(|op| Ops::Operator(op)))
+        .collect())
 }
 
+// get the continuous number from the vector<u8>
+// +231 / -231 / 123
 fn get_number(data: &[u8]) -> Vec<char> {
     data.iter()
         .take_while(|b| **b > 48 && **b <= 57)
@@ -144,11 +150,13 @@ fn get_number(data: &[u8]) -> Vec<char> {
         .collect()
 }
 
+// transfer a vector<char> to an number
 fn bytes_to_number(data: &[char]) -> i64 {
     let string_number = data.into_iter().collect::<String>();
     string_number.parse::<i64>().unwrap()
 }
 
+// parse the string expression to postfix expression
 pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
     let mut format_bytes = Vec::new();
 
