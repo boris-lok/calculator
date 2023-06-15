@@ -375,7 +375,7 @@ mod tests {
                     Ops::Operator(Operator::Mul),
                 ]),
             ),
-(
+            (
                 "1.2 + 1.5".to_string(),
                 Ok::<_, Error>(vec![
                     Ops::Number(1.2),
@@ -383,7 +383,6 @@ mod tests {
                     Ops::Operator(Operator::Add),
                 ]),
             ),
-
         ];
 
         for (expression, expected) in testcases {
