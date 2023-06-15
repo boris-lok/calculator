@@ -25,6 +25,21 @@ impl Operator {
     }
 }
 
+impl From<&u8> for Operator {
+    fn from(value: &u8) -> Self {
+        match value {
+            &b'^' => Operator::Pow,
+            &b'+' => Operator::Add,
+            &b'-' => Operator::Sub,
+            &b'*' => Operator::Mul,
+            &b'/' => Operator::Div,
+            &b'(' => Operator::LeftBucket,
+            &b')' => Operator::RightBucket,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Ops {
     Number(i64),
@@ -46,90 +61,75 @@ pub fn eval(ops: Vec<Ops>) -> Result<i64, Error> {
         match op {
             Ops::Number(number) => stack.push_back(number),
             Ops::Operator(op) => {
-                let a = stack.pop_back();
-                let b = stack.pop_back();
-
-                if a.is_none() || b.is_none() {
-                    return Err(Error::InvalidExpression);
-                }
-
-                let a = a.unwrap();
-                let b = b.unwrap();
-
-                match op {
-                    Operator::Pow => stack.push_back(b.pow(a as u32)),
-                    Operator::Add => {
-                        stack.push_back(a + b);
-                    }
-                    Operator::Sub => {
-                        stack.push_back(b - a);
-                    }
-                    Operator::Mul => {
-                        stack.push_back(a * b);
-                    }
-                    Operator::Div => {
-                        if a == 0 {
-                            return Err(Error::InvalidExpression);
+                if let (Some(a), Some(b)) = (stack.pop_back(), stack.pop_back()) {
+                    match op {
+                        Operator::Pow => stack.push_back(b.pow(a as u32)),
+                        Operator::Add => {
+                            stack.push_back(a + b);
                         }
-                        stack.push_back(b / a);
+                        Operator::Sub => {
+                            stack.push_back(b - a);
+                        }
+                        Operator::Mul => {
+                            stack.push_back(a * b);
+                        }
+                        Operator::Div => {
+                            if a == 0 {
+                                return Err(Error::InvalidExpression);
+                            }
+                            stack.push_back(b / a);
+                        }
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
+                } else {
+                    return Err(Error::InvalidExpression);
                 }
             }
         }
     }
 
-    let ans = stack.pop_back();
-
-    if ans.is_none() {
-        return Err(Error::InvalidExpression);
+    match stack.pop_back() {
+        Some(ans) => Ok(ans),
+        None => Err(Error::InvalidExpression),
     }
-
-    Ok(ans.unwrap())
 }
 
 // organize the operators to postfix expression
 // 2 + 3 * 2 -> 2 3 2 * +
 pub fn organize_ops(ops: Vec<Ops>) -> Result<Vec<Ops>, Error> {
-    let mut stack = Vec::new();
+    let mut stack: Vec<Operator> = Vec::new();
     let mut ans = Vec::new();
 
-    dbg!(&ops);
-
     for op in ops {
-        dbg!(&op, &stack);
         match op {
             Ops::Number(x) => ans.push(Ops::Number(x)),
             Ops::Operator(op) => match op {
                 Operator::Div | Operator::Pow | Operator::Add | Operator::Sub | Operator::Mul => {
-                    if stack.is_empty() {
-                        stack.push(op.clone());
-                    } else {
+                    if !stack.is_empty() {
                         let mut c = stack.last().unwrap().clone();
 
-                        while op.get_priority() > c.get_priority() {
-                            if stack.is_empty() {
-                                break;
-                            }
+                        while !stack.is_empty() && op.get_priority() > c.get_priority() {
                             c = stack.pop().unwrap();
                             ans.push(Ops::Operator(c.clone()));
                         }
-
-                        stack.push(op.clone());
                     }
+
+                    stack.push(op.clone());
                 }
                 Operator::LeftBucket => stack.push(Operator::LeftBucket),
-                Operator::RightBucket => loop {
-                    let op = stack.pop();
-                    if op.is_none() {
-                        return Err(Error::InvalidExpression);
-                    }
-                    let op = op.unwrap();
-                    if op != Operator::LeftBucket {
-                        ans.push(Ops::Operator(op));
-                    } else {
-                        break;
-                    }
+                Operator::RightBucket => 'outer: loop {
+                    match stack.pop() {
+                        Some(op) => {
+                            if op != Operator::LeftBucket {
+                                ans.push(Ops::Operator(op));
+                            } else {
+                                break 'outer;
+                            }
+                        }
+                        None => {
+                            return Err(Error::InvalidExpression);
+                        }
+                    };
                 },
             },
         }
@@ -172,28 +172,11 @@ pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
         let c = b.get(idx).unwrap();
         match c {
             &b' ' => {}
-            &b'*' => format_bytes.push(Ops::Operator(Operator::Mul)),
-            &b'/' => format_bytes.push(Ops::Operator(Operator::Div)),
-            &b'^' => format_bytes.push(Ops::Operator(Operator::Pow)),
-            &b'(' => format_bytes.push(Ops::Operator(Operator::LeftBucket)),
-            &b')' => format_bytes.push(Ops::Operator(Operator::RightBucket)),
-            &b'+' => {
-                let next = b.get(idx + 1);
-                if next.is_none() {
-                    return Err(Error::InvalidExpression);
-                }
-                match next.unwrap() {
-                    &(48..=57) => {
-                        let number_array = get_number(&b[idx + 1..length]);
-                        idx += number_array.len();
-                        let number = bytes_to_number(&number_array);
-                        format_bytes.push(Ops::Number(number));
-                    }
-                    b' ' => format_bytes.push(Ops::Operator(Operator::Add)),
-                    _ => unreachable!(),
-                }
+            c if c == &b'*' || c == &b'/' || c == &b'^' || c == &b'(' || c == &b')' => {
+                format_bytes.push(Ops::Operator(c.into()))
             }
-            &b'-' => {
+            c if c == &b'+' || c == &b'-' => {
+                let add_or_sub: Operator = c.into();
                 let next = b.get(idx + 1);
                 if next.is_none() {
                     return Err(Error::InvalidExpression);
@@ -203,9 +186,13 @@ pub fn parser(expression: String) -> Result<Vec<Ops>, Error> {
                         let number_array = get_number(&b[idx + 1..length]);
                         idx += number_array.len();
                         let number = bytes_to_number(&number_array);
-                        format_bytes.push(Ops::Number(0 - number));
+                        format_bytes.push(Ops::Number(if add_or_sub == Operator::Sub {
+                            0 - number
+                        } else {
+                            number
+                        }));
                     }
-                    b' ' => format_bytes.push(Ops::Operator(Operator::Sub)),
+                    b' ' => format_bytes.push(Ops::Operator(add_or_sub)),
                     _ => unreachable!(),
                 }
             }
